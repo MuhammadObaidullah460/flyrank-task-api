@@ -19,6 +19,7 @@ tasks = [
 
 @app.get("/tasks")
 def get_tasks():
+    """Sari tasks ki list return karta hai"""
     return tasks
 
 @app.get("/tasks/{id}")
