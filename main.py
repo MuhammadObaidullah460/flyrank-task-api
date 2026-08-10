@@ -41,3 +41,23 @@ def create_task(task: Task):
     new_task = {"id": new_id, "title": task.title, "done": task.done}
     tasks.append(new_task)
     return new_task
+
+@app.put("/tasks/{id}")
+def update_task(id: int, updated_task: Task):
+    if not updated_task.title.strip():
+        raise HTTPException(status_code=400, detail="Title cannot be empty")
+        
+    for task in tasks:
+        if task["id"] == id:
+            task["title"] = updated_task.title
+            task["done"] = updated_task.done
+            return task
+    raise HTTPException(status_code=404, detail="Task not found")
+
+@app.delete("/tasks/{id}", status_code=204)
+def delete_task(id: int):
+    for i, task in enumerate(tasks):
+        if task["id"] == id:
+            del tasks[i]
+            return
+    raise HTTPException(status_code=404, detail="Task not found")
