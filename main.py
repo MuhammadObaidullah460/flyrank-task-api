@@ -46,14 +46,34 @@ def dict_factory(cursor, row):
 
 @app.get("/tasks")
 def get_tasks():
+    conn = sqlite3.connect("tasks.db")
+    conn.row_factory = dict_factory
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT * FROM tasks")
+    tasks = cursor.fetchall()
+    
+    for task in tasks:
+        task["done"] = bool(task["done"])
+        
+    conn.close()
     return tasks
 
 @app.get("/tasks/{id}")
 def get_task(id: int):
-    for task in tasks:
-        if task["id"] == id:
-            return task
-    raise HTTPException(status_code=404, detail="Task not found")
+    conn = sqlite3.connect("tasks.db")
+    conn.row_factory = dict_factory
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT * FROM tasks WHERE id=?", (id,))
+    task = cursor.fetchone()
+    conn.close()
+    
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+        
+    task["done"] = bool(task["done"])
+    return task
 
 class Task(BaseModel):
     title: str
