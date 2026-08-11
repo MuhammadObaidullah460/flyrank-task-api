@@ -103,17 +103,41 @@ def update_task(id: int, updated_task: Task):
     if not updated_task.title.strip():
         raise HTTPException(status_code=400, detail="Title cannot be empty")
         
-    for task in tasks:
-        if task["id"] == id:
-            task["title"] = updated_task.title
-            task["done"] = updated_task.done
-            return task
-    raise HTTPException(status_code=404, detail="Task not found")
+    conn = sqlite3.connect("tasks.db")
+    conn.row_factory = dict_factory
+    cursor = conn.cursor()
+    
+    # Check if task exists
+    cursor.execute("SELECT * FROM tasks WHERE id=?", (id,))
+    if cursor.fetchone() is None:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Task not found")
+        
+    # Update the task
+    cursor.execute("UPDATE tasks SET title=?, done=? WHERE id=?", (updated_task.title, int(updated_task.done), id))
+    conn.commit()
+    
+    # Fetch and return the updated task
+    cursor.execute("SELECT * FROM tasks WHERE id=?", (id,))
+    task = cursor.fetchone()
+    conn.close()
+    
+    task["done"] = bool(task["done"])
+    return task
 
 @app.delete("/tasks/{id}", status_code=204)
 def delete_task(id: int):
-    for i, task in enumerate(tasks):
-        if task["id"] == id:
-            del tasks[i]
-            return
-    raise HTTPException(status_code=404, detail="Task not found")
+    conn = sqlite3.connect("tasks.db")
+    cursor = conn.cursor()
+    
+    # Check if task exists
+    cursor.execute("SELECT * FROM tasks WHERE id=?", (id,))
+    if cursor.fetchone() is None:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Task not found")
+        
+    # Delete the task
+    cursor.execute("DELETE FROM tasks WHERE id=?", (id,))
+    conn.commit()
+    conn.close()
+    return
