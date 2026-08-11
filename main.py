@@ -1,3 +1,4 @@
+import sqlite3
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
@@ -11,15 +12,40 @@ def read_root():
 def health_check():
     return {"status": "ok"}
 
-tasks = [
-    {"id": 1, "title": "Task 1", "done": False},
-    {"id": 2, "title": "Task 2", "done": True},
-    {"id": 3, "title": "Task 3", "done": False}
-]
+def init_db():
+    conn = sqlite3.connect("tasks.db")
+    cursor = conn.cursor()
+    
+    # Table banayein agar nahi bani hui
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS tasks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            done INTEGER NOT NULL
+        )
+    ''')
+    
+    # Agar table khali hai toh 3 sample tasks daalein
+    cursor.execute("SELECT COUNT(*) FROM tasks")
+    if cursor.fetchone()[0] == 0:
+        sample_tasks = [
+            ("Task 1", 0),
+            ("Task 2", 1),
+            ("Task 3", 0)
+        ]
+        cursor.executemany("INSERT INTO tasks (title, done) VALUES (?, ?)", sample_tasks)
+        conn.commit()
+        
+    conn.close()
+
+init_db()
+
+# Helper function (Database rows ko dictionary banata hai)
+def dict_factory(cursor, row):
+    return {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
 
 @app.get("/tasks")
 def get_tasks():
-    """Sari tasks ki list return karta hai"""
     return tasks
 
 @app.get("/tasks/{id}")
