@@ -41,3 +41,24 @@ def init_db():
                 conn.commit()
 
 init_db()
+
+@app.get("/tasks")
+def get_tasks():
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id, title, done FROM tasks")
+            rows = cursor.fetchall()
+            # Manual dictionary conversion to avoid any factory issues
+            return [{"id": row[0], "title": row[1], "done": row[2]} for row in rows]
+
+@app.get("/tasks/{id}")
+def get_task(id: int):
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id, title, done FROM tasks WHERE id = %s", (id,))
+            row = cursor.fetchone()
+            
+            if row is None:
+                raise HTTPException(status_code=404, detail="Task not found")
+                
+            return {"id": row[0], "title": row[1], "done": row[2]}
