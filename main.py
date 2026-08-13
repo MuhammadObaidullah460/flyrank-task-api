@@ -1,5 +1,6 @@
 import os
 from fastapi import FastAPI
+from pydantic import BaseModel
 import psycopg
 from dotenv import load_dotenv
 
@@ -62,3 +63,54 @@ def get_task(id: int):
                 raise HTTPException(status_code=404, detail="Task not found")
                 
             return {"id": row[0], "title": row[1], "done": row[2]}
+
+class Task(BaseModel):
+    title: str
+    done: bool = False
+
+@app.post("/tasks", status_code=201)
+def create_task(task: Task):
+    if not task.title.strip():
+        raise HTTPException(status_code=400, detail="Title cannot be empty")
+    
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cursor:
+            # RETURNING clause hands back the new row including id
+            cursor.execute(
+                "INSERT INTO tasks (title, done) VALUES (%s, %s) RETURNING id, title, done",
+                (task.title, task.done)
+            )
+            row = cursor.fetchone()
+            conn.commit()
+            return {"id": row[0], "title": row[1], "done": row[2]}
+
+@app.put("/tasks/{id}")
+def update_task(id: int, updated_task: Task):
+    if not updated_task.title.strip():
+        raise HTTPException(status_code=400, detail="Title cannot be empty")
+        
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id FROM tasks WHERE id = %s", (id,))
+            if cursor.fetchone() is None:
+                raise HTTPException(status_code=404, detail="Task not found")
+                
+            cursor.execute(
+                "UPDATE tasks SET title = %s, done = %s WHERE id = %s RETURNING id, title, done",
+                (updated_task.title, updated_task.done, id)
+            )
+            row = cursor.fetchone()
+            conn.commit()
+            return {"id": row[0], "title": row[1], "done": row[2]}
+
+@app.delete("/tasks/{id}", status_code=204)
+def delete_task(id: int):
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id FROM tasks WHERE id = %s", (id,))
+            if cursor.fetchone() is None:
+                raise HTTPException(status_code=404, detail="Task not found")
+                
+            cursor.execute("DELETE FROM tasks WHERE id = %s", (id,))
+            conn.commit()
+    return
