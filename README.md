@@ -1,11 +1,26 @@
-# FlyRank Task API
+# FlyRank Task API (Database Version)
 
 A simple CRUD API that manages a to-do list, built with Python and FastAPI. 
 Developed by Muhammad Obaidullah.
 
+## Why SQLite?
+For this version, the storage layer was moved from an in-memory list to a real SQLite database. SQLite was chosen because it requires zero setup, uses a single file, and ensures our data survives server restarts.
+
+## Database Information
+The database file is automatically created as `tasks.db` in the root folder when the application runs for the first time. The `tasks` table is also created automatically and seeded with three example tasks if it is empty.
+
 ## How to Run
 Run the following command in your terminal to start the server:
-`uvicorn main:app --reload`
+```bash
+uvicorn main:app --reload
+```
+
+## Example SQL Query
+During testing, I used DB Browser to interact with the database directly. Here is an example query I ran:
+```sql
+SELECT * FROM tasks WHERE done = 1;
+```
+*Result: This query returned all tasks that have been marked as completed (done).*
 
 ## Endpoints
 
@@ -19,17 +34,5 @@ Run the following command in your terminal to start the server:
 | PUT | `/tasks/{id}` | Update a task |
 | DELETE | `/tasks/{id}` | Delete a task |
 
-## cURL Output Example
-```bash
-curl -i http://localhost:8000/health
-
-HTTP/1.1 200 OK
-server: uvicorn
-content-length: 15
-content-type: application/json
-
-{"status":"ok"}
-```
-
-## Swagger UI Documentation
-![Swagger UI Screenshot](swagger.png)
+## Database View
+![DB Browser Screenshot](db.png)
