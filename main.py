@@ -1,12 +1,16 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import psycopg
 from dotenv import load_dotenv
 
-# .env file se connection string load karein
 load_dotenv()
+
+# Fallback: Agar environment variable mein db mojood nahi ya local run ho raha hai toh Docker service 'db' use karein
 DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL or "localhost" in DATABASE_URL:
+    # Check if running inside docker or fallback to docker service name
+    DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:dev@db:5432/tasks")
 
 app = FastAPI()
 
@@ -18,28 +22,35 @@ def read_root():
 def health_check():
     return {"status": "ok"}
 
+import time
+
 def init_db():
-    # PostgreSQL ke sath connect karein aur table banayein
-    with psycopg.connect(DATABASE_URL) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS tasks (
-                    id SERIAL PRIMARY KEY,
-                    title TEXT NOT NULL,
-                    done BOOLEAN NOT NULL DEFAULT FALSE
-                )
-            ''')
-            
-            # Agar table khali hai toh 3 sample tasks seed karein
-            cursor.execute("SELECT COUNT(*) FROM tasks")
-            if cursor.fetchone()[0] == 0:
-                sample_tasks = [
-                    ("Task 1", False),
-                    ("Task 2", True),
-                    ("Task 3", False)
-                ]
-                cursor.executemany("INSERT INTO tasks (title, done) VALUES (%s, %s)", sample_tasks)
-                conn.commit()
+    retries = 5
+    while retries > 0:
+        try:
+            with psycopg.connect(DATABASE_URL) as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute('''
+                        CREATE TABLE IF NOT EXISTS tasks (
+                            id SERIAL PRIMARY KEY,
+                            title TEXT NOT NULL,
+                            done BOOLEAN NOT NULL DEFAULT FALSE
+                        )
+                    ''')
+                    cursor.execute("SELECT COUNT(*) FROM tasks")
+                    if cursor.fetchone()[0] == 0:
+                        sample_tasks = [
+                            ("Task 1", False),
+                            ("Task 2", True),
+                            ("Task 3", False)
+                        ]
+                        cursor.executemany("INSERT INTO tasks (title, done) VALUES (%s, %s)", sample_tasks)
+                        conn.commit()
+            break
+        except psycopg.OperationalError:
+            retries -= 1
+            print("Database not ready yet, retrying in 2 seconds...")
+            time.sleep(2)
 
 init_db()
 
