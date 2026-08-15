@@ -14,6 +14,13 @@ Run the following command in your terminal to start the entire stack (API + Data
 ```bash
 docker compose up --build
 ```
+
+## Environment Variables
+Before running the application, set up your environment variables by pointing to the example file:
+```bash
+cp .env.example .env
+```
+
 ## Endpoints
 
 | Method | Path | Meaning |
@@ -25,3 +32,12 @@ docker compose up --build
 | POST | `/tasks` | Create a new task |
 | PUT | `/tasks/{id}` | Update a task |
 | DELETE | `/tasks/{id}` | Delete a task |
+
+## Example Request 
+To test the API, you can use this curl command:
+```bash
+curl -i http://localhost:8000/tasks
+```
+
+## Database View
+![DB Browser Screenshot](postgres_db.png)
