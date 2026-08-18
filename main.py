@@ -3,16 +3,30 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import psycopg
 from dotenv import load_dotenv
+from supabase import create_client, Client
+import time
 
+# Load environment variables
 load_dotenv()
+
+app = FastAPI()
+
+# Supabase Setup
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# Checkpoint requirement: Log on startup
+@app.on_event("startup")
+def startup_event():
+    print("Server running and connected to Supabase")
 
 # Fallback: Agar environment variable mein db mojood nahi ya local run ho raha hai toh Docker service 'db' use karein
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL or "localhost" in DATABASE_URL:
     # Check if running inside docker or fallback to docker service name
     DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:dev@db:5432/tasks")
-
-app = FastAPI()
 
 @app.get("/")
 def read_root():
@@ -21,8 +35,6 @@ def read_root():
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
-
-import time
 
 def init_db():
     retries = 5
@@ -60,7 +72,6 @@ def get_tasks():
         with conn.cursor() as cursor:
             cursor.execute("SELECT id, title, done FROM tasks")
             rows = cursor.fetchall()
-            # Manual dictionary conversion to avoid any factory issues
             return [{"id": row[0], "title": row[1], "done": row[2]} for row in rows]
 
 @app.get("/tasks/{id}")
@@ -86,7 +97,6 @@ def create_task(task: Task):
     
     with psycopg.connect(DATABASE_URL) as conn:
         with conn.cursor() as cursor:
-            # RETURNING clause hands back the new row including id
             cursor.execute(
                 "INSERT INTO tasks (title, done) VALUES (%s, %s) RETURNING id, title, done",
                 (task.title, task.done)
