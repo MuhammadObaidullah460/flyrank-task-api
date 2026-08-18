@@ -1,5 +1,6 @@
 import os
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 import psycopg
 from dotenv import load_dotenv
@@ -10,6 +11,8 @@ import jwt
 
 # Load environment variables
 load_dotenv()
+
+security = HTTPBearer()
 
 app = FastAPI()
 
@@ -145,27 +148,20 @@ def public_info():
     return {"message": "Welcome stranger! This info is public."}
 
 @app.get("/protected/profile")
-def protected_profile(request: Request):
-    auth_header = request.headers.get("Authorization")
-    
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return JSONResponse(status_code=401, content={"error": "Access token required"})
-    
-    # .strip() add kiya hai taake extra spaces remove ho jayein
-    token = auth_header.split(" ")[1].strip() 
+def protected_profile(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    # HTTPBearer khud check karega ke token aaya hai ya nahi, aur Bearer ko alag kar dega
+    token = credentials.credentials 
     
     try:
         user_res = supabase.auth.get_user(token)
         return {
-            "message": "Token verified successfully!", 
+            "message": "Token verified successfully via Swagger Padlock 🔒!", 
             "user_id": user_res.user.id,
             "email": user_res.user.email
         }
         
     except Exception as e:
-        # Ab humein asal error nazar aayega!
-        print(f"Supabase Auth Error: {str(e)}", flush=True)
-        return JSONResponse(status_code=401, content={"error": f"Asal masla: {str(e)}"})
+        return JSONResponse(status_code=401, content={"error": "Invalid token"})
 
 class Task(BaseModel):
     title: str
