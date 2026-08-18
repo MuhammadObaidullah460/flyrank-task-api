@@ -5,6 +5,7 @@ import psycopg
 from dotenv import load_dotenv
 from supabase import create_client, Client
 import time
+from fastapi.responses import JSONResponse
 
 # Load environment variables
 load_dotenv()
@@ -85,6 +86,53 @@ def get_task(id: int):
                 raise HTTPException(status_code=404, detail="Task not found")
                 
             return {"id": row[0], "title": row[1], "done": row[2]}
+
+# Yeh class apni file mein Task class ke aas paas add kar lein
+class AuthRequest(BaseModel):
+    email: str
+    password: str
+
+# ---------------------------------------------
+# Stage 1: Auth Routes
+# ---------------------------------------------
+
+@app.post("/auth/signup", status_code=201)
+def signup(req: AuthRequest):
+    # Validate: Server never trusts the client
+    if not req.email.strip() or not req.password.strip():
+        raise HTTPException(status_code=400, detail="Email and password required")
+    
+    try:
+        # Call the Python sign_up method
+        res = supabase.auth.sign_up({
+            "email": req.email,
+            "password": req.password
+        })
+        # Return 201 with the user object
+        return res.user
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/auth/login", status_code=200)
+def login(req: AuthRequest):
+    # Validate empty fields -> 400
+    if not req.email.strip() or not req.password.strip():
+        raise HTTPException(status_code=400, detail="Email and password required")
+    
+    try:
+        # Call the Python sign_in_with_password method
+        res = supabase.auth.sign_in_with_password({
+            "email": req.email,
+            "password": req.password
+        })
+        # Return 200 with the access token (JWT) and refresh token
+        return {
+            "access_token": res.session.access_token,
+            "refresh_token": res.session.refresh_token
+        }
+    except Exception as e:
+        # If Supabase rejects, return 401
+        return JSONResponse(status_code=401, content={"error": "Invalid login credentials"})
 
 class Task(BaseModel):
     title: str
