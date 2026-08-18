@@ -13,7 +13,15 @@ import jwt
 load_dotenv()
 
 security = HTTPBearer()
-
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    try:
+        # Token verify kar ke user wapas bhejega
+        user_res = supabase.auth.get_user(token)
+        return user_res.user
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    
 app = FastAPI()
 
 # Supabase Setup
@@ -72,7 +80,7 @@ def init_db():
 init_db()
 
 @app.get("/tasks")
-def get_tasks():
+def get_tasks(user = Depends(get_current_user)):  # <--- Guard lag gaya
     with psycopg.connect(DATABASE_URL) as conn:
         with conn.cursor() as cursor:
             cursor.execute("SELECT id, title, done FROM tasks")
@@ -80,7 +88,7 @@ def get_tasks():
             return [{"id": row[0], "title": row[1], "done": row[2]} for row in rows]
 
 @app.get("/tasks/{id}")
-def get_task(id: int):
+def get_task(id: int, user = Depends(get_current_user)): # <--- Guard lag gaya
     with psycopg.connect(DATABASE_URL) as conn:
         with conn.cursor() as cursor:
             cursor.execute("SELECT id, title, done FROM tasks WHERE id = %s", (id,))
@@ -90,7 +98,7 @@ def get_task(id: int):
                 raise HTTPException(status_code=404, detail="Task not found")
                 
             return {"id": row[0], "title": row[1], "done": row[2]}
-
+        
 # Yeh class apni file mein Task class ke aas paas add kar lein
 class AuthRequest(BaseModel):
     email: str
@@ -168,7 +176,7 @@ class Task(BaseModel):
     done: bool = False
 
 @app.post("/tasks", status_code=201)
-def create_task(task: Task):
+def create_task(task: Task, user = Depends(get_current_user)): # <--- Guard lag gaya
     if not task.title.strip():
         raise HTTPException(status_code=400, detail="Title cannot be empty")
     
@@ -183,7 +191,7 @@ def create_task(task: Task):
             return {"id": row[0], "title": row[1], "done": row[2]}
 
 @app.put("/tasks/{id}")
-def update_task(id: int, updated_task: Task):
+def update_task(id: int, updated_task: Task, user = Depends(get_current_user)): # <--- Guard lag gaya
     if not updated_task.title.strip():
         raise HTTPException(status_code=400, detail="Title cannot be empty")
         
@@ -202,7 +210,7 @@ def update_task(id: int, updated_task: Task):
             return {"id": row[0], "title": row[1], "done": row[2]}
 
 @app.delete("/tasks/{id}", status_code=204)
-def delete_task(id: int):
+def delete_task(id: int, user = Depends(get_current_user)): # <--- Guard lag gaya
     with psycopg.connect(DATABASE_URL) as conn:
         with conn.cursor() as cursor:
             cursor.execute("SELECT id FROM tasks WHERE id = %s", (id,))
