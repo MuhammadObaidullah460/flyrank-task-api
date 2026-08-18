@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 import psycopg
 from dotenv import load_dotenv
@@ -133,6 +133,33 @@ def login(req: AuthRequest):
     except Exception as e:
         # If Supabase rejects, return 401
         return JSONResponse(status_code=401, content={"error": "Invalid login credentials"})
+
+# ---------------------------------------------
+# Stage 2: Public & Protected Gates
+# ---------------------------------------------
+
+@app.get("/public/info", status_code=200)
+def public_info():
+    # Returns public data without any auth 
+    return {"message": "Welcome stranger! This info is public."}
+
+@app.get("/protected/profile")
+def protected_profile(request: Request):
+    # Extract the token from the Authorization header [cite: 94, 95]
+    auth_header = request.headers.get("Authorization")
+    
+    # If the header is missing, malformed, or has no token, immediately return 401 [cite: 96]
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return JSONResponse(status_code=401, content={"error": "Access token required"})
+    
+    # Split the header to get the actual token part
+    token = auth_header.split(" ")[1]
+    
+    if not token:
+         return JSONResponse(status_code=401, content={"error": "Access token required"})
+    
+    # For now, just returning a success message (Verification happens in Stage 3)
+    return {"message": "Token received!", "token": token}
 
 class Task(BaseModel):
     title: str
