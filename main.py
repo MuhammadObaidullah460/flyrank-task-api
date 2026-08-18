@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 import time
 from fastapi.responses import JSONResponse
+import jwt
 
 # Load environment variables
 load_dotenv()
@@ -15,7 +16,7 @@ app = FastAPI()
 # Supabase Setup
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-
+SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # Checkpoint requirement: Log on startup
@@ -145,21 +146,26 @@ def public_info():
 
 @app.get("/protected/profile")
 def protected_profile(request: Request):
-    # Extract the token from the Authorization header [cite: 94, 95]
     auth_header = request.headers.get("Authorization")
     
-    # If the header is missing, malformed, or has no token, immediately return 401 [cite: 96]
     if not auth_header or not auth_header.startswith("Bearer "):
         return JSONResponse(status_code=401, content={"error": "Access token required"})
     
-    # Split the header to get the actual token part
-    token = auth_header.split(" ")[1]
+    # .strip() add kiya hai taake extra spaces remove ho jayein
+    token = auth_header.split(" ")[1].strip() 
     
-    if not token:
-         return JSONResponse(status_code=401, content={"error": "Access token required"})
-    
-    # For now, just returning a success message (Verification happens in Stage 3)
-    return {"message": "Token received!", "token": token}
+    try:
+        user_res = supabase.auth.get_user(token)
+        return {
+            "message": "Token verified successfully!", 
+            "user_id": user_res.user.id,
+            "email": user_res.user.email
+        }
+        
+    except Exception as e:
+        # Ab humein asal error nazar aayega!
+        print(f"Supabase Auth Error: {str(e)}", flush=True)
+        return JSONResponse(status_code=401, content={"error": f"Asal masla: {str(e)}"})
 
 class Task(BaseModel):
     title: str

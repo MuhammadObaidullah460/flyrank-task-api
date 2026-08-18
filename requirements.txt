@@ -18,3 +18,4 @@ tzdata==2026.3
 uvicorn==0.52.1
 supabase
 python-dotenv
+PyJWT
